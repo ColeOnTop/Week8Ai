@@ -1,0 +1,156 @@
+{
+  "name": "AutoParts AI Agent Simulation",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Incoming_Production_Data",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autoparts-data",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Quality_Control_Agent",
+      "type": "n8n-nodes-base.openAIApi",
+      "typeVersion": 1,
+      "position": [550, 150],
+      "parameters": {
+        "resource": "chatCompletion",
+        "model": "gpt-4o-mini",
+        "systemMessage": "You are a Quality Control AI Agent. Analyze sensor and vision data and predict defect likelihood. Output JSON: { 'defect_probability': %, 'issue': '', 'action': '' }",
+        "messages": [
+          {
+            "text": "Analyze this component data: {{$json}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "3",
+      "name": "Predictive_Maintenance_Agent",
+      "type": "n8n-nodes-base.openAIApi",
+      "typeVersion": 1,
+      "position": [550, 350],
+      "parameters": {
+        "resource": "chatCompletion",
+        "model": "gpt-4o-mini",
+        "systemMessage": "You are a Predictive Maintenance Agent. Based on machine logs, estimate failure risk and recommend maintenance steps. Output JSON: { 'failure_risk': %, 'recommended_action': '' }",
+        "messages": [
+          {
+            "text": "Analyze machine performance data: {{$json}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "4",
+      "name": "Production_Optimization_Agent",
+      "type": "n8n-nodes-base.openAIApi",
+      "typeVersion": 1,
+      "position": [550, 550],
+      "parameters": {
+        "resource": "chatCompletion",
+        "model": "gpt-4o-mini",
+        "systemMessage": "You are a Production Optimization Agent. Consider defect rate, machine downtime, and demand. Recommend optimal scheduling changes. Output JSON.",
+        "messages": [
+          {
+            "text": "Current production status: {{$json}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "name": "Aggregate_Agent_Outputs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [850, 350],
+      "parameters": {
+        "mode": "combine"
+      }
+    },
+    {
+      "id": "6",
+      "name": "Send_Alerts",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1150, 300],
+      "parameters": {
+        "fromEmail": "alerts@autoparts.com",
+        "toEmail": "supervisor@autoparts.com",
+        "subject": "AI Agent Report",
+        "text": "AI Agent Combined Report:\n\n{{$json}}"
+      }
+    },
+    {
+      "id": "7",
+      "name": "Store_in_Database",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [1150, 450],
+      "parameters": {
+        "operation": "insert",
+        "table": "agent_reports",
+        "columns": "qc_results, maintenance_results, optimization_results",
+        "values": "{{$json[\"Quality_Control_Agent\"]}}, {{$json[\"Predictive_Maintenance_Agent\"]}}, {{$json[\"Production_Optimization_Agent\"]}}"
+      }
+    }
+  ],
+  "connections": {
+    "Incoming_Production_Data": {
+      "main": [
+        [
+          { "node": "Quality_Control_Agent", "type": "main", "index": 0 },
+          { "node": "Predictive_Maintenance_Agent", "type": "main", "index": 0 },
+          { "node": "Production_Optimization_Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Quality_Control_Agent": {
+      "main": [
+        [
+          {
+            "node": "Aggregate_Agent_Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Predictive_Maintenance_Agent": {
+      "main": [
+        [
+          {
+            "node": "Aggregate_Agent_Outputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Production_Optimization_Agent": {
+      "main": [
+        [
+          {
+            "node": "Aggregate_Agent_Outputs",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Aggregate_Agent_Outputs": {
+      "main": [
+        [
+          { "node": "Send_Alerts", "type": "main", "index": 0 },
+          { "node": "Store_in_Database", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  }
+}
